@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linux passwd File Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            /* Light theme colors */
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-accent: #f1f5f9;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --border-color: #e2e8f0;
+            --border-light: #f1f5f9;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-full: 9999px;
+        }
+
+        [data-theme="dark"] {
+            /* Dark theme colors */
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-accent: #334155;
+            --bg-gradient: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --border-light: #475569;
+            --accent-primary: #60a5fa;
+            --accent-secondary: #34d399;
+            --accent-warning: #fbbf24;
+            --accent-danger: #f87171;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            padding: 1.5rem;
+            color: var(--text-primary);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: var(--bg-secondary);
+            border-radius: 1.5rem;
+            box-shadow: var(--shadow-xl);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header {
+            background: var(--bg-gradient);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            letter-spacing: -0.025em;
+        }
+
+        .header p {
+            opacity: 0.95;
+            font-size: 1.25rem;
+            font-weight: 400;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.75rem;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(180deg);
+        }
+
+        .upload-section {
+            padding: 3rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        .upload-section h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 1.5rem 0;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            background: linear-gradient(135deg, var(--accent-primary), #2563eb);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: var(--radius-full);
+            border: none;
+            font-size: 1.125rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-lg);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .file-input-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.5);
+        }
+
+        .file-input-button:active {
+            transform: translateY(0);
+        }
+
+        .sample-button {
+            background: linear-gradient(135deg, var(--accent-secondary), #059669);
+            color: white;
+            padding: 0.875rem 1.75rem;
+            border-radius: var(--radius-full);
+            border: none;
+            margin-left: 1rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sample-button:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .upload-description {
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+            background: var(--bg-accent);
+            margin: 0;
+        }
+
+        .stat-item {
+            background: var(--bg-secondary);
+            padding: 2rem 1.5rem;
+            border-radius: var(--radius-lg);
+            text-align: center;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+            font-feature-settings: 'tnum';
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .filters {
+            padding: 2rem;
+            background: var(--bg-secondary);
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .filter-input {
+            padding: 0.875rem 1.25rem;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            min-width: 250px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .filter-select {
+            padding: 0.875rem 1.25rem;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-secondary);
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .table-container {
+            padding: 2rem;
+            overflow-x: auto;
+            background: var(--bg-secondary);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 1rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        th, td {
+            padding: 1.25rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        th {
+            background: var(--bg-accent);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.875rem;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        tr {
+            transition: all 0.2s ease;
+        }
+
+        tr:hover {
+            background: var(--bg-accent);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .username {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .uid, .gid {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 3rem;
+            height: 2rem;
+            border-radius: var(--radius-full);
+            font-size: 0.875rem;
+            font-weight: 500;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .uid {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .gid {
+            background: var(--accent-secondary);
+            color: white;
+        }
+
+        .shell {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-accent);
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .home-dir {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .user-type {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .system-user .user-type {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .regular-user .user-type {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-secondary);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .no-data i {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            opacity: 0.3;
+        }
+
+        .no-data h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .no-data p {
+            font-size: 1.125rem;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--accent-primary);
+        }
+
+        .loading i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .loading h3 {
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+
+        /* Enhanced animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .container {
+                border-radius: 1rem;
+            }
+            
+            .header {
+                padding: 2rem 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .theme-toggle {
+                top: 1rem;
+                right: 1rem;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                padding: 1.5rem;
+            }
+            
+            .filters {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1.5rem;
+            }
+            
+            .filter-input {
+                min-width: 100%;
+            }
+            
+            .filter-select {
+                width: 100%;
+            }
+            
+            .table-container {
+                padding: 1rem;
+            }
+            
+            table {
+                font-size: 0.875rem;
+            }
+            
+            th, td {
+                padding: 0.875rem 0.5rem;
+            }
+            
+            .file-input-button, .sample-button {
+                width: 100%;
+                margin: 0.5rem 0;
+            }
+        }
+
+        /* Auto-update styles */
+        .auto-update-controls {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: var(--bg-accent);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .auto-update-header h4 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .auto-update-options {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-color);
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .update-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .refresh-button {
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-button:hover {
+            background: #2563eb;
+            transform: rotate(180deg);
+        }
+
+        .url-input-section {
+            margin-top: 1rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-online {
+            background-color: var(--accent-secondary);
+            animation: pulse 2s infinite;
+        }
+
+        .status-offline {
+            background-color: var(--accent-danger);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.75rem;
+            }
+            
+            .upload-section {
+                padding: 2rem 1rem;
+            }
+            
+            .stat-number {
+                font-size: 2rem;
+            }
+        }
+
+        /* Accessibility improvements */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Focus styles for keyboard navigation */
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible {
+            outline: 2px solid var(--accent-primary);
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+            <div class="header-content">
+                <h1><i class="fab fa-linux"></i> passwd File Viewer</h1>
+                <p>Analyze and visualize Linux user accounts with style</p>
+            </div>
+        </div>
+
+        <div class="upload-section">
+            <h3>Upload your /etc/passwd file</h3>
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" class="file-input" accept=".txt,.passwd,*" aria-label="Choose passwd file">
+                <button class="file-input-button">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    Choose File
+                </button>
+            </div>
+            <button class="sample-button" onclick="loadSampleData()">
+                <i class="fas fa-vial"></i>
+                Load Sample Data
+            </button>
+            <button class="sample-button" onclick="loadFromUrl()" style="background: linear-gradient(135deg, var(--accent-warning), #d97706);">
+                <i class="fas fa-link"></i>
+                Load from URL
+            </button>
+            <button class="sample-button" onclick="loadDirectFile()" style="background: linear-gradient(135deg, #dc2626, #b91c1c);">
+                <i class="fas fa-eye"></i>
+                Monitor Live
+            </button>
+            <button class="sample-button" onclick="showServerInstructions()" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+                <i class="fas fa-question-circle"></i>
+                Setup Help
+            </button>
+            <div class="upload-description">
+                Select your passwd file, load sample data, or fetch from a URL.<br>
+                The file will be processed locally in your browser for privacy.
+            </div>
+            
+            <!-- Auto-update controls -->
+            <div id="autoUpdateSection" class="auto-update-controls" style="display: none;">
+                <div class="auto-update-header">
+                    <h4><i class="fas fa-sync-alt"></i> Auto-Update Settings</h4>
+                </div>
+                <div class="auto-update-options">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoUpdateToggle">
+                        <span class="slider"></span>
+                        Enable Auto-Update
+                    </label>
+                    <select id="updateInterval" class="filter-select" style="margin-left: 1rem;">
+                        <option value="5">Every 5 seconds</option>
+                        <option value="30" selected>Every 30 seconds</option>
+                        <option value="60">Every minute</option>
+                        <option value="300">Every 5 minutes</option>
+                        <option value="900">Every 15 minutes</option>
+                    </select>
+                    <div class="update-status">
+                        <span id="lastUpdateTime">Never updated</span>
+                        <button id="manualRefresh" class="refresh-button" onclick="manualRefresh()">
+                            <i class="fas fa-refresh"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="url-input-section">
+                    <input type="url" id="passwdUrl" class="filter-input" placeholder="Enter URL to passwd file (e.g., http://localhost/passwd)" style="width: 100%;">
+                </div>
+            </div>
+        </div>
+
+        <div id="statsSection" class="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-number" id="totalUsers">0</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="systemUsers">0</div>
+                <div class="stat-label">System Users</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="regularUsers">0</div>
+                <div class="stat-label">Regular Users</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="shellUsers">0</div>
+                <div class="stat-label">Shell Users</div>
+            </div>
+        </div>
+
+        <div id="filtersSection" class="filters" style="display: none;">
+            <input type="text" id="searchInput" class="filter-input" placeholder="🔍 Search users..." aria-label="Search users">
+            <select id="userTypeFilter" class="filter-select" aria-label="Filter by user type">
+                <option value="all">All Users</option>
+                <option value="system">System Users (UID < 1000)</option>
+                <option value="regular">Regular Users (UID ≥ 1000)</option>
+                <option value="shell">Users with Shell</option>
+                <option value="noshell">Users without Shell</option>
+            </select>
+            <select id="sortBy" class="filter-select" aria-label="Sort by">
+                <option value="username">Sort by Username</option>
+                <option value="uid">Sort by UID</option>
+                <option value="gid">Sort by GID</option>
+            </select>
+        </div>
+
+        <div class="table-container">
+            <div id="noData" class="no-data">
+                <i class="fas fa-database"></i>
+                <h3>No data loaded</h3>
+                <p>Please upload a passwd file or load sample data to begin exploring user accounts</p>
+            </div>
+            <div id="loading" class="loading" style="display: none;">
+                <i class="fas fa-spinner"></i>
+                <h3>Processing your file...</h3>
+            </div>
+            <table id="userTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-user"></i> Username</th>
+                        <th><i class="fas fa-hashtag"></i> UID</th>
+                        <th><i class="fas fa-users"></i> GID</th>
+                        <th><i class="fas fa-id-card"></i> Full Name</th>
+                        <th><i class="fas fa-home"></i> Home Directory</th>
+                        <th><i class="fas fa-terminal"></i> Shell</th>
+                        <th><i class="fas fa-tag"></i> Type</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let userData = [];
+        let filteredData = [];
+
+        // Theme management
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeIcon = document.getElementById('themeIcon');
+            const currentTheme = html.getAttribute('data-theme');
+            
+            if (currentTheme === 'dark') {
+                html.removeAttribute('data-theme');
+                themeIcon.className = 'fas fa-moon';
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                themeIcon.className = 'fas fa-sun';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Initialize theme
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const themeIcon = document.getElementById('themeIcon');
+            
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                themeIcon.className = 'fas fa-sun';
+            } else {
+                themeIcon.className = 'fas fa-moon';
+            }
+        }
+
+        // Event listeners
+        document.getElementById('fileInput').addEventListener('change', handleFile);
+        document.getElementById('searchInput').addEventListener('input', filterUsers);
+        document.getElementById('userTypeFilter').addEventListener('change', filterUsers);
+        document.getElementById('sortBy').addEventListener('change', sortAndDisplay);
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showLoading();
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                parsePasswdFile(e.target.result);
+            };
+            reader.onerror = function() {
+                hideLoading();
+                alert('Error reading file. Please try again.');
+            };
+            reader.readAsText(file);
+        }
+
+        function parsePasswdFile(content) {
+            userData = [];
+            const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+            
+            lines.forEach(line => {
+                const parts = line.split(':');
+                if (parts.length >= 7) {
+                    const uid = parseInt(parts[2]);
+                    const user = {
+                        username: parts[0],
+                        password: parts[1],
+                        uid: uid,
+                        gid: parseInt(parts[3]),
+                        fullName: parts[4] || 'N/A',
+                        homeDir: parts[5],
+                        shell: parts[6],
+                        type: uid < 1000 ? 'system' : 'regular',
+                        hasShell: parts[6] && !parts[6].includes('nologin') && !parts[6].includes('false') && !parts[6].includes('sync')
+                    };
+                    userData.push(user);
+                }
+            });
+
+            animateStatsUpdate();
+            filterUsers();
+            showInterface();
+            hideLoading();
+        }
+
+        function loadSampleData() {
+            showLoading();
+            
+            // Simulate loading delay for better UX
+            setTimeout(() => {
+                const sampleData = `root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+sync:x:4:65534:sync:/bin:/bin/sync
+games:x:5:60:games:/usr/games:/usr/sbin/nologin
+man:x:6:12:man:/var/cache/man:/usr/sbin/nologin
+lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin
+mail:x:8:8:mail:/var/mail:/usr/sbin/nologin
+news:x:9:9:news:/var/spool/news:/usr/sbin/nologin
+www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin
+backup:x:34:34:backup:/var/backups:/usr/sbin/nologin
+list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin
+irc:x:39:39:ircd:/var/run/ircd:/usr/sbin/nologin
+gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+systemd-network:x:100:102:systemd Network Management,,,:/run/systemd:/usr/sbin/nologin
+systemd-resolve:x:101:103:systemd Resolver,,,:/run/systemd:/usr/sbin/nologin
+messagebus:x:102:105::/nonexistent:/usr/sbin/nologin
+systemd-timesync:x:103:106:systemd Time Synchronization,,,:/run/systemd:/usr/sbin/nologin
+pollinate:x:104:1::/var/cache/pollinate:/bin/false
+sshd:x:105:65534::/run/sshd:/usr/sbin/nologin
+syslog:x:106:110::/home/syslog:/usr/sbin/nologin
+uuidd:x:107:111::/run/uuidd:/usr/sbin/nologin
+tcpdump:x:108:112::/nonexistent:/usr/sbin/nologin
+tss:x:109:114:TPM software stack,,,:/var/lib/tpm:/bin/false
+landscape:x:110:115::/var/lib/landscape:/usr/sbin/nologin
+fwupd-refresh:x:111:116:fwupd-refresh user,,,:/run/systemd:/usr/sbin/nologin
+john:x:1000:1000:John Doe,,,:/home/john:/bin/bash
+alice:x:1001:1001:Alice Smith,,,:/home/alice:/bin/bash
+bob:x:1002:1002:Bob Johnson,,,:/home/bob:/bin/zsh
+admin:x:1003:1003:System Administrator,,,:/home/admin:/bin/bash
+developer:x:1004:1004:Development User,,,:/home/developer:/bin/fish`;
+                
+                parsePasswdFile(sampleData);
+            }, 800);
+        }
+
+        function animateStatsUpdate() {
+            const stats = calculateStats();
+            
+            const counters = [
+                { element: 'totalUsers', target: stats.total },
+                { element: 'systemUsers', target: stats.system },
+                { element: 'regularUsers', target: stats.regular },
+                { element: 'shellUsers', target: stats.shell }
+            ];
+
+            counters.forEach(counter => {
+                animateCounter(counter.element, counter.target);
+            });
+        }
+
+        function animateCounter(elementId, target) {
+            const element = document.getElementById(elementId);
+            const duration = 1000;
+            const steps = 50;
+            const stepValue = target / steps;
+            const stepTime = duration / steps;
+            let current = 0;
+
+            const timer = setInterval(() => {
+                current += stepValue;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                element.textContent = Math.floor(current);
+            }, stepTime);
+        }
+
+        function calculateStats() {
+            const total = userData.length;
+            const system = userData.filter(user => user.type === 'system').length;
+            const regular = userData.filter(user => user.type === 'regular').length;
+            const shell = userData.filter(user => user.hasShell).length;
+
+            return { total, system, regular, shell };
+        }
+
+        function filterUsers() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const typeFilter = document.getElementById('userTypeFilter').value;
+
+            filteredData = userData.filter(user => {
+                const matchesSearch = user.username.toLowerCase().includes(searchTerm) ||
+                                    user.fullName.toLowerCase().includes(searchTerm) ||
+                                    user.homeDir.toLowerCase().includes(searchTerm) ||
+                                    user.shell.toLowerCase().includes(searchTerm);
+
+                const matchesType = typeFilter === 'all' ||
+                                  (typeFilter === 'system' && user.type === 'system') ||
+                                  (typeFilter === 'regular' && user.type === 'regular') ||
+                                  (typeFilter === 'shell' && user.hasShell) ||
+                                  (typeFilter === 'noshell' && !user.hasShell);
+
+                return matchesSearch && matchesType;
+            });
+
+            sortAndDisplay();
+        }
+
+        function sortAndDisplay() {
+            const sortBy = document.getElementById('sortBy').value;
+            
+            filteredData.sort((a, b) => {
+                switch (sortBy) {
+                    case 'uid':
+                        return a.uid - b.uid;
+                    case 'gid':
+                        return a.gid - b.gid;
+                    case 'username':
+                    default:
+                        return a.username.localeCompare(b.username);
+                }
+            });
+
+            displayUsers();
+        }
+
+        function displayUsers() {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+
+            filteredData.forEach((user, index) => {
+                const row = document.createElement('tr');
+                row.className = `user-row ${user.type}-user slide-in`;
+                row.style.animationDelay = `${index * 50}ms`;
+                
+                const typeLabel = user.type === 'system' ? 'System' : 'Regular';
+                
+                row.innerHTML = `
+                    <td><span class="username">${escapeHtml(user.username)}</span></td>
+                    <td><span class="uid">${user.uid}</span></td>
+                    <td><span class="gid">${user.gid}</span></td>
+                    <td>${escapeHtml(user.fullName)}</td>
+                    <td><span class="home-dir">${escapeHtml(user.homeDir)}</span></td>
+                    <td><span class="shell">${escapeHtml(user.shell)}</span></td>
+                    <td><span class="user-type">${typeLabel}</span></td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showInterface() {
+            document.getElementById('statsSection').style.display = 'grid';
+            document.getElementById('filtersSection').style.display = 'flex';
+            document.getElementById('userTable').style.display = 'table';
+            document.getElementById('noData').style.display = 'none';
+            
+            // Add fade-in animation
+            document.getElementById('statsSection').classList.add('fade-in');
+            document.getElementById('filtersSection').classList.add('fade-in');
+            document.getElementById('userTable').classList.add('fade-in');
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('noData').style.display = 'none';
+            document.getElementById('userTable').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Initialize theme on page load
+        document.addEventListener('DOMContentLoaded', initTheme);
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) {
+                const themeIcon = document.getElementById('themeIcon');
+                if (e.matches) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    themeIcon.className = 'fas fa-sun';
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    themeIcon.className = 'fas fa-moon';
+                }
+            }
+        });
+
+        // Auto-update functionality
+        let autoUpdateInterval = null;
+        let currentUrl = '';
+
+        // Auto-update event listeners
+        document.getElementById('autoUpdateToggle').addEventListener('change', toggleAutoUpdate);
+        document.getElementById('updateInterval').addEventListener('change', updateIntervalChanged);
+
+        function loadFromUrl() {
+            const url = prompt('Enter the URL to your passwd file:', 'http://localhost/passwd');
+            if (!url) return;
+            
+            document.getElementById('passwdUrl').value = url;
+            document.getElementById('autoUpdateSection').style.display = 'block';
+            currentUrl = url;
+            
+            fetchFromUrl(url);
+        }
+
+        function loadDirectFile() {
+            const confirmed = confirm(
+                'This will set up direct monitoring of /etc/passwd on your server.\n\n' +
+                'Requirements:\n' +
+                '• Web server with direct file access\n' +
+                '• Proper file permissions\n' +
+                '• CORS configuration\n\n' +
+                'Use "Setup Help" for configuration instructions.\n\n' +
+                'Continue with direct file monitoring?'
+            );
+            
+            if (!confirmed) return;
+            
+            // Try common direct file URLs
+            const serverPrompt = prompt('Enter your server address:', window.location.hostname || 'localhost');
+            if (!serverPrompt) return;
+            
+            const directUrl = `http://${serverPrompt}/etc/passwd`;
+            document.getElementById('passwdUrl').value = directUrl;
+            document.getElementById('autoUpdateSection').style.display = 'block';
+            currentUrl = directUrl;
+            
+            // Show additional setup info
+            updateLastUpdateTime('Setting up direct monitoring...');
+            
+            // Try fetching directly first
+            fetchFromUrl(directUrl).catch(() => {
+                // If direct access fails, show setup instructions
+                showDirectMonitoringInstructions();
+            });
+        }
+
+        async function fetchFromUrl(url) {
+            if (!url) return;
+            
+            showLoading();
+            updateLastUpdateTime('Updating...');
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    cache: 'no-cache',
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const content = await response.text();
+                parsePasswdFile(content);
+                updateLastUpdateTime('Success');
+                showStatusIndicator(true);
+                
+            } catch (error) {
+                hideLoading();
+                updateLastUpdateTime(`Error: ${error.message}`);
+                showStatusIndicator(false);
+                console.error('Fetch error:', error);
+                
+                // Show user-friendly error message
+                alert(`Failed to load passwd file from URL: ${error.message}\n\nPlease check:\n• The URL is correct\n• The server is running\n• CORS is properly configured\n• The file is accessible`);
+            }
+        }
+
+        function toggleAutoUpdate() {
+            const toggle = document.getElementById('autoUpdateToggle');
+            const urlInput = document.getElementById('passwdUrl');
+            
+            if (toggle.checked) {
+                const url = urlInput.value.trim();
+                if (!url) {
+                    alert('Please enter a URL first');
+                    toggle.checked = false;
+                    return;
+                }
+                
+                currentUrl = url;
+                startAutoUpdate();
+            } else {
+                stopAutoUpdate();
+            }
+        }
+
+        function startAutoUpdate() {
+            stopAutoUpdate(); // Clear any existing interval
+            
+            const intervalSeconds = parseInt(document.getElementById('updateInterval').value);
+            const intervalMs = intervalSeconds * 1000;
+            
+            autoUpdateInterval = setInterval(() => {
+                if (currentUrl) {
+                    fetchFromUrl(currentUrl);
+                }
+            }, intervalMs);
+            
+            updateLastUpdateTime(`Auto-update started (every ${intervalSeconds}s)`);
+        }
+
+        function stopAutoUpdate() {
+            if (autoUpdateInterval) {
+                clearInterval(autoUpdateInterval);
+                autoUpdateInterval = null;
+            }
+        }
+
+        function updateIntervalChanged() {
+            const toggle = document.getElementById('autoUpdateToggle');
+            if (toggle.checked) {
+                startAutoUpdate(); // Restart with new interval
+            }
+        }
+
+        function manualRefresh() {
+            const url = document.getElementById('passwdUrl').value.trim() || currentUrl;
+            if (!url) {
+                alert('Please enter a URL first');
+                return;
+            }
+            
+            fetchFromUrl(url);
+        }
+
+        function updateLastUpdateTime(status) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            document.getElementById('lastUpdateTime').innerHTML = `
+                <span class="status-indicator ${status === 'Success' ? 'status-online' : (status.includes('Error') ? 'status-offline' : '')}"></span>
+                Last update: ${timeString} - ${status}
+            `;
+        }
+
+        function showStatusIndicator(online) {
+            const statusElements = document.querySelectorAll('.status-indicator');
+            statusElements.forEach(el => {
+                el.className = `status-indicator ${online ? 'status-online' : 'status-offline'}`;
+            });
+        }
+
+        // Direct file monitoring setup instructions
+        function showDirectMonitoringInstructions() {
+            const instructions = `
+DIRECT FILE MONITORING SETUP
+
+Option 1: Apache Direct Access
+sudo nano /etc/apache2/sites-available/000-default.conf
+
+Add inside <VirtualHost>:
+    Alias /etc /etc
+    <Directory "/etc">
+        Require all granted
+        Header set Access-Control-Allow-Origin "*"
+    </Directory>
+
+Then: sudo a2enmod headers && sudo systemctl reload apache2
+
+Option 2: Nginx Direct Access  
+sudo nano /etc/nginx/sites-available/default
+
+Add inside server block:
+    location /etc/ {
+        alias /etc/;
+        add_header Access-Control-Allow-Origin *;
+    }
+
+Then: sudo systemctl reload nginx
+
+Option 3: Symbolic Link (Safer)
+sudo ln -s /etc/passwd /var/www/html/passwd-live
+# Use URL: http://server/passwd-live
+
+⚠️ SECURITY WARNING:
+Direct /etc access exposes ALL system files!
+Consider using Option 3 (symbolic link) for better security.
+            `;
+            
+            alert(instructions);
+        }
+
+        // Server setup instructions
+        function showServerInstructions() {
+            const instructions = `
+PASSWD FILE VIEWER - SETUP OPTIONS
+
+🔄 AUTO-UPDATE OPTIONS:
+
+1. **Copy-Based (Safer)**
+   - Files are copied to web directory
+   - Original files remain protected
+   - Use "Load from URL" button
+
+2. **Direct Monitoring (Advanced)**
+   - Monitor /etc/passwd directly
+   - Real-time updates, no copying needed
+   - Requires careful security setup
+   - Use "Monitor Live" button
+
+📋 QUICK SETUP COMMANDS:
+
+Safe Copy Method:
+   cp /etc/passwd /var/www/html/passwd
+   # Use URL: http://server/passwd
+
+Python Server:
+   mkdir ~/passwd-viewer && cp /etc/passwd ~/passwd-viewer/
+   cd ~/passwd-viewer && python3 -m http.server 8080
+   # Use URL: http://server:8080/passwd
+
+File Watcher (Auto-copy on changes):
+   inotifywait -m /etc/passwd -e modify | while read; do
+     cp /etc/passwd /var/www/html/passwd
+   done
+
+🔧 For detailed setup, run: ./setup-auto-update.sh
+            `;
+            
+            alert(instructions);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'k':
+                        e.preventDefault();
+                        document.getElementById('searchInput').focus();
+                        break;
+                    case 'd':
+                        e.preventDefault();
+                        toggleTheme();
+                        break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
